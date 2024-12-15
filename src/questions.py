@@ -39,14 +39,9 @@ def serialise_results(result: FullQuestion):
     )
 
 
-TOPIC = "data science"
-LEVEL = Level.INTERMEDIATE
-
 results_dir = Path(__file__).resolve().parent.parent / "results"
 results_dir.mkdir(parents=True, exist_ok=True)
-results_file = (
-    results_dir / f"{TOPIC.replace(' ', '_')}_{datetime.now().isoformat()}.json"
-)
+results_file = results_dir / f"{datetime.now().isoformat()}.json"
 
 
 def store_state():
@@ -56,8 +51,6 @@ def store_state():
 
 def create_pipeline(model_type: ModelType = ModelType.REMOTE_CHEAP) -> Pipeline:
     logger.info("Creating pipeline")
-    # Note that due to du-dupe and rephrasing, you can't guarantee the number of questions
-    # at the end of the process
 
     question_generation_pipeline = Pipeline()
 

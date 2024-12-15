@@ -9,13 +9,6 @@ from consts import Level, Question
 from models import ModelType, create_llm_model
 
 
-warning_loggers = [
-    "httpx",
-    "haystack.core.pipeline.pipeline",
-]
-for name in warning_loggers:
-    logging.getLogger(name).setLevel(logging.WARNING)
-
 openai_api_key = os.getenv("OPENAI_API_KEY", None)
 
 QUESTION_TEMPLATE = """

@@ -1,7 +1,9 @@
-from typing import List, Optional
-from haystack import Pipeline
+import logging
+from typing import List
+from haystack import Pipeline, component
 from haystack.components.builders import PromptBuilder
 
+from consts import CaseStudy
 from models import create_llm_model, ModelType
 
 
@@ -9,25 +11,22 @@ CASE_STUDY_TEMPLATE = """
 You are writing case studies for an interview.
 Your case studies should be open-ended and thought-provoking.
 Case studies should provide an initial problem as context, and lead the candidate through a series of questions.
-You should also provide some guidance on what you'd expect to see in a good answer.
-Guidance should be a series of bullet points, with one point per line. Do not include any punctuation at the start of your bullet points
 All text should be clear and concise, and should not be overly verbose.
-Questions should be written in a way to take the candidate through the problem-solving process. They should be answerable given the context and common sense.
+Questions should be written in a way to take the candidate through the problem-solving process. They should be answerable given the context and a knowledgeable candidate.
 You should write a maximum of five questions.
 You must not write answers to questions.
 You must not include any extra conversation, you must only write a single cast study.
-Do not provide examples that discuss e-commerce.
+Domains of interest include: business, government, and defence.
 
-You must write your case study using the template below.
+You should output your case study in the following format:
 
-Context:
-<!-- Provide a brief context for the case study. -->
+Context
+
+<Your context here>
 
 Questions
-<1-- Provide a list of questions -->
 
-Guidance
-<!-- Provide guidance on what you'd expect to see in a good answer. -->
+<Your questions here>
 
 You are an expert interviewer in the topic {{ topic }}{{ (" and sub-topic " + sub_topic) if sub_topic else "" }}.
 Your case study must be on the topic {{ topic }}{{ (" and sub-topic " + sub_topic) if sub_topic else "" }}.
@@ -35,30 +34,55 @@ Write a single case study below.
 """
 
 
-case_study_generation_pipeline = Pipeline()
+@component
+class GenerateCaseStudies:
+    def __init__(self, model: ModelType) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Initialising instance")
+        self.pipeline = Pipeline()
 
-case_study_generation_pipeline.add_component(
-    "case-study-prompt",
-    PromptBuilder(template=CASE_STUDY_TEMPLATE),  # type: ignore
-)
-case_study_generation_pipeline.add_component(
-    "case-study-generator", create_llm_model(ModelType.REMOTE)
-)
+        self.pipeline.add_component(
+            "case-study-prompt",
+            PromptBuilder(template=CASE_STUDY_TEMPLATE),  # type: ignore
+        )
+        self.pipeline.add_component(
+            "case-study-generator",
+            create_llm_model(model),
+        )
 
-case_study_generation_pipeline.connect("case-study-prompt", "case-study-generator")
+        self.pipeline.connect("case-study-prompt", "case-study-generator")
 
+    @component.output_types(questions=List[CaseStudy])
+    def run(
+        self,
+        topic: str,
+        sub_topics: List[str],
+        num_case_studies: int,
+        **kwargs,
+    ):
+        self.logger.info("Beginning run")
 
-def generate_case_studies(topic: str, sub_topic: Optional[str] = None) -> List[str]:
-    results = case_study_generation_pipeline.run(
-        {"case-study-prompt": {"topic": topic, "sub_topic": sub_topic}}
-    )
-    case_study = results["case-study-generator"]["replies"][0]
+        case_studies: List[CaseStudy] = []
+        for sub_topic in sub_topics:
+            self.logger.debug(
+                f"Generating case study contexts for sub-topic: {sub_topic}"
+            )
+            num_generated_for_sub_topic = 0
+            while num_generated_for_sub_topic < num_case_studies:
+                results = self.pipeline.run(
+                    {
+                        "case-study-prompt": {
+                            "topic": topic,
+                            "sub_topic": sub_topic,
+                        }
+                    }
+                )
+                context = results["case-study-generator"]["replies"][0]
 
-    return case_study
+                case_studies.append(
+                    CaseStudy(topic=topic, sub_topic=sub_topic, context=context)
+                )
+                num_generated_for_sub_topic += 1
 
-
-if __name__ == "__main__":
-    case_study = generate_case_studies(
-        topic="machine learning engineering", sub_topic="model privacy"
-    )
-    print(case_study)
+        self.logger.info(f"# of raw questions generated: {len(case_studies)}")
+        return {"case_studies": case_studies}

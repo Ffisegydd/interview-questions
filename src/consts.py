@@ -39,7 +39,7 @@ class Output(BaseModel):
 class CaseStudy(BaseModel):
     topic: str
     sub_topic: str
-    text: str
+    context: str
     # context: str
     questions: Optional[str] = None
     answers: Optional[str] = None
