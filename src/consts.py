@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
@@ -11,14 +10,30 @@ class Level(Enum):
     ADVANCED = "advanced"
 
 
-@dataclass
-class Question:
+class Question(BaseModel):
     topic: str
     sub_topic: str
     question: str
-    question_embedding: Optional[List[float]] = None
-    answers: Optional[List[str]] = None
-    follow_ups: Optional[List[str]] = None
+
+
+class EmbeddedQuestion(Question):
+    question_embedding: List[float]
+
+
+class AnsweredQuestion(Question):
+    answers: List[str]
+
+
+class FullQuestion(AnsweredQuestion):
+    follow_ups: List[str]
+
+
+class Output(BaseModel):
+    topic: str
+    sub_topic: str
+    question: str
+    answers: List[str]
+    follow_ups: List[str]
 
 
 class CaseStudy(BaseModel):

@@ -5,13 +5,8 @@ from pathlib import Path
 from typing import List
 
 from case_study_generation import generate_case_studies
-from consts import CaseStudy, Level
+from consts import CaseStudy
 from sub_topic_generation import generate_sub_topics
-
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)

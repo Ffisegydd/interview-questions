@@ -1,11 +1,22 @@
-from typing import List, Optional
-from haystack import Pipeline
+import os
+import logging
+from typing import List
+
+from haystack import Pipeline, component
 from haystack.components.builders import PromptBuilder
 
-from models import create_llm_model, ModelType
-from consts import Level
+from consts import Level, Question
+from models import ModelType, create_llm_model
 
-question_generation_model = create_llm_model(ModelType.REMOTE)
+
+warning_loggers = [
+    "httpx",
+    "haystack.core.pipeline.pipeline",
+]
+for name in warning_loggers:
+    logging.getLogger(name).setLevel(logging.WARNING)
+
+openai_api_key = os.getenv("OPENAI_API_KEY", None)
 
 QUESTION_TEMPLATE = """
 You are writing interview questions on the topic for others to use.
@@ -21,39 +32,67 @@ You must not include any extra conversation, you must only write questions.
 Your questions should be aimed at a {{ level }} practitioner.
 You are an expert interviewer in the topic {{ topic }}{{ (" and sub-topic " + sub_topic) if sub_topic else "" }}."""
 
-question_prompt_builder = PromptBuilder(template=QUESTION_TEMPLATE)  # type: ignore
 
-question_generation_pipeline = Pipeline()
+@component
+class GenerateQuestions:
+    def __init__(self, model: ModelType) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Initialising instance")
+        self.pipeline = Pipeline()
 
-question_generation_pipeline.add_component("question-prompt", question_prompt_builder)
-question_generation_pipeline.add_component(
-    "question-generator", question_generation_model
-)
+        self.pipeline.add_component(
+            "question-prompt",
+            PromptBuilder(template=QUESTION_TEMPLATE),  # type: ignore
+        )
+        self.pipeline.add_component(
+            "question-generator",
+            create_llm_model(model),
+        )
 
-question_generation_pipeline.connect("question-prompt", "question-generator")
+        self.pipeline.connect("question-prompt", "question-generator")
 
+    @component.output_types(questions=List[Question])
+    def run(
+        self,
+        topic: str,
+        sub_topics: List[str],
+        level: Level,
+        num_questions: int,
+        **kwargs,
+    ):
+        self.logger.info("Beginning run")
 
-def generate_questions(
-    topic: str, sub_topic: Optional[str] = None, level: Level = Level.BEGINNER
-) -> List[str]:
-    results = question_generation_pipeline.run(
-        {
-            "question-prompt": {
-                "topic": topic,
-                "sub_topic": sub_topic,
-                "level": level.value,
-            }
-        }
-    )
-    questions = results["question-generator"]["replies"][0].split("\n")
+        questions: List[Question] = []
+        for sub_topic in sub_topics:
+            self.logger.debug(f"Generating questions for sub-topic: {sub_topic}")
+            num_generated_for_sub_topic = 0
+            while num_generated_for_sub_topic < num_questions:
+                results = self.pipeline.run(
+                    {
+                        "question-prompt": {
+                            "topic": topic,
+                            "sub_topic": sub_topic,
+                            "level": level,
+                        }
+                    }
+                )
+                replies = results["question-generator"]["replies"]
 
-    return questions
+                for reply in replies:
+                    for line in reply.split("\n"):
+                        cleaned_text = self.clean_question(line)
+                        question = Question(
+                            topic=topic, sub_topic=sub_topic, question=cleaned_text
+                        )
+                        if (
+                            question.question
+                            and num_generated_for_sub_topic < num_questions
+                        ):  # Check for empty lines
+                            questions.append(question)
+                            self.logger.debug(f"Added question: {question}")
+                            num_generated_for_sub_topic += 1
+        self.logger.info(f"# of raw questions generated: {len(questions)}")
+        return {"questions": questions}
 
-
-if __name__ == "__main__":
-    questions = generate_questions(
-        topic="machine learning engineering",
-        sub_topic="machine learning algorithms",
-        level=Level.BEGINNER,
-    )
-    print(questions)
+    def clean_question(self, question: str) -> str:
+        return question.strip()

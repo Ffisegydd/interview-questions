@@ -17,4 +17,5 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "pydantic>=2.10.3",
     "pandas>=2.2.3",
+    "jupyterlab>=4.3.3",
 ]

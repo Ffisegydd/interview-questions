@@ -1,43 +1,101 @@
-from typing import List
+import logging
+from typing import Dict, List
+from haystack import Document, component
+from haystack.components.embedders import OpenAITextEmbedder
+from haystack_integrations.components.embedders.ollama import OllamaDocumentEmbedder
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-from consts import Question
-from embedder import embed_documents
+from consts import EmbeddedQuestion, Question
 import uuid
 
 
-# Function to calculate similarity and decide on adding a document
-def add_document_if_not_similar(
-    doc: Question, existing_docs: dict[str, List[Question]], similarity_threshold=0.85
-) -> dict[str, List[Question]]:
-    # Embed the new document
-    doc_embedding = embed_documents([doc.question])["documents"][0].embedding
-    doc.question_embedding = doc_embedding
+@component
+class ClusterQuestions:
+    def __init__(self, ollama_model_name: str) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Initialising instance")
+        self.embedder = OllamaDocumentEmbedder(
+            model=ollama_model_name,  # type: ignore
+            progress_bar=False,  # type: ignore
+        )  # type: ignore
 
-    # Retrieve all existing document embeddings
-    for cluster_key, cluster in existing_docs.items():
-        cluster_embeddings = np.array([d.question_embedding for d in cluster])
+        self.clusters: Dict[str, List[EmbeddedQuestion]] = {}
 
-        # Check similarity with existing documents
-        similarities = cosine_similarity([doc_embedding], cluster_embeddings)[0]
-        max_similarity = max(similarities)
+    @component.output_types(clusters=List[List[EmbeddedQuestion]])
+    def run(self, questions: List[Question], similarity_threshold: float = 0.9):
+        self.logger.info("Beginning run")
+        embedded_questions = self._embed_questions(questions)
 
-        if max_similarity >= similarity_threshold:
-            existing_docs[cluster_key].append(doc)
-            return existing_docs
+        clustered_questions = self._cluster_questions(
+            embedded_questions, similarity_threshold
+        )
 
-    # Add the document if not similar
-    existing_docs[str(uuid.uuid4())] = [doc]
-    return existing_docs
+        clustered_questions = [
+            self._clear_embeddings(cluster) for cluster in clustered_questions.values()
+        ]
 
+        self.logger.info(f"# of clusters generated: {len(clustered_questions)}")
 
-def cluster_documents(documents: List[Question], similarity_threshold=0.9):
-    existing_docs: dict[str, List[Question]] = {}
+        return {"clusters": list(clustered_questions)}
 
-    for doc in documents:
-        add_document_if_not_similar(doc, existing_docs, similarity_threshold)
-    return existing_docs
+    def _embed_questions(self, questions: List[Question]) -> List[EmbeddedQuestion]:
+        documents = [Document(content=q.question) for q in questions]
+        embeddings = self.embedder.run(documents)["documents"]
+
+        # embeddings = []
+        # for question in questions:
+        #     embedding = self.embedder.run(question.question)["embedding"]
+        #     embeddings.append(embedding)
+
+        embedded_questions: List[EmbeddedQuestion] = []
+        for question, embedding in zip(questions, embeddings):
+            embedded_questions.append(
+                EmbeddedQuestion(
+                    question_embedding=embedding.embedding,
+                    question=question.question,
+                    topic=question.topic,
+                    sub_topic=question.sub_topic,
+                )
+            )
+
+        return embedded_questions
+
+    def _cluster_questions(
+        self, questions: List[EmbeddedQuestion], similarity_threshold
+    ) -> Dict[str, List[EmbeddedQuestion]]:
+        for question in questions:
+            self._add_to_cluster(question, similarity_threshold)
+
+        return self.clusters
+
+    def _add_to_cluster(self, question: EmbeddedQuestion, similarity_threshold):
+        for cluster_key, cluster in self.clusters.items():
+            cluster_embeddings = np.array([d.question_embedding for d in cluster])
+
+            # Check similarity with existing documents
+            similarities = cosine_similarity(
+                np.array([question.question_embedding]), cluster_embeddings
+            )[0]
+            max_similarity = max(similarities)
+
+            # Add document if sufficiently similar to an existing cluster
+            if max_similarity >= similarity_threshold:
+                self.clusters[cluster_key].append(question)
+                return
+
+        self.clusters[str(uuid.uuid4())] = [question]
+        return
+
+    def _clear_embeddings(self, questions: List[EmbeddedQuestion]) -> List[Question]:
+        return [
+            Question(
+                question=question.question,
+                topic=question.topic,
+                sub_topic=question.sub_topic,
+            )
+            for question in questions
+        ]
 
 
 if __name__ == "__main__":
@@ -86,18 +144,3 @@ if __name__ == "__main__":
         "What is the difference between a parametric and a non-parametric model?",
         "How does the t-SNE algorithm work?",
     ]
-
-    documents = [
-        Question(question=q, topic="machine learning", sub_topic="ml engineering")
-        for q in questions
-    ]
-
-    clustered_documents = cluster_documents(documents, similarity_threshold=0.85)
-
-    for key, value in list(
-        sorted(clustered_documents.items(), key=lambda x: -len(x[1]))
-    )[:5]:
-        print(f"Cluster: {key}")
-        for doc in value:
-            print(doc.question)
-        print()

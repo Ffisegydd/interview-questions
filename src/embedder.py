@@ -3,9 +3,9 @@ from haystack import Document
 from haystack_integrations.components.embedders.ollama import OllamaDocumentEmbedder
 
 document_embedder = OllamaDocumentEmbedder(
-    model="mxbai-embed-large",
-    progress_bar=False,
-)
+    model="mxbai-embed-large",  # type: ignore
+    progress_bar=False,  # type: ignore
+)  # type: ignore
 
 
 def embed_documents(documents: List[str] | List[Document]) -> List[Document]:

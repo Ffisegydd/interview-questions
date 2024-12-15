@@ -1,8 +1,10 @@
+import logging
+import re
 from typing import List
-from haystack import Pipeline
+from haystack import Pipeline, component
 from haystack.components.builders import PromptBuilder
 
-from consts import Question
+from consts import AnsweredQuestion, Question
 from models import create_llm_model, ModelType
 
 ANSWER_TEMPLATE = """
@@ -18,30 +20,59 @@ You must not include any kind of bullet points, numbers, or punctuation at the s
 You are an expert in the topic {{ topic }}{{ (" and sub-topic " + sub_topic) if sub_topic else "" }}. 
 Your question is {{ question }}"""
 
-answer_prompt_builder = PromptBuilder(template=ANSWER_TEMPLATE)  # type: ignore
-answer_generation_model = create_llm_model(ModelType.REMOTE)
 
-answer_generation_pipeline = Pipeline()
+@component
+class GenerateAnswers:
+    def __init__(self, model: ModelType) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.debug("Initialising instance")
+        self.pipeline = Pipeline()
 
-answer_generation_pipeline.add_component("answer-prompt", answer_prompt_builder)
-answer_generation_pipeline.add_component("answer-generator", answer_generation_model)
+        self.pipeline.add_component(
+            "answer-prompt",
+            PromptBuilder(template=ANSWER_TEMPLATE),  # type: ignore
+        )
+        self.pipeline.add_component(
+            "answer-generator",
+            create_llm_model(model),
+        )
 
-answer_generation_pipeline.connect("answer-prompt", "answer-generator")
+        self.pipeline.connect("answer-prompt", "answer-generator")
 
+    @component.output_types(questions=List[AnsweredQuestion])
+    def run(self, questions: List[Question]):
+        self.logger.info("Beginning run")
+        output: List[AnsweredQuestion] = []
+        for idx, question in enumerate(questions):
+            if idx % 20 == 0:
+                self.logger.debug(f"Processing question {idx + 1}/{len(questions)}")
+            results = self.pipeline.run(
+                {
+                    "answer-prompt": {
+                        "topic": question.topic,
+                        "sub_topic": question.sub_topic,
+                        "question": question.question,
+                    }
+                }
+            )
+            answers = self._process_answer(results["answer-generator"]["replies"][0])
+            output.append(
+                AnsweredQuestion(
+                    topic=question.topic,
+                    sub_topic=question.sub_topic,
+                    question=question.question,
+                    answers=answers,
+                )
+            )
 
-def generate_answer_key_points(result: Question) -> List[str]:
-    results = answer_generation_pipeline.run(
-        {
-            "answer-prompt": {
-                "topic": result.topic,
-                "sub_topic": result.sub_topic,
-                "question": result.question,
-            }
-        }
-    )
-    key_points = results["answer-generator"]["replies"][0].split("\n")
+        return {"questions": output}
 
-    return key_points
+    def _process_answer(self, answer_text: str) -> List[str]:
+        answers = answer_text.split("\n")
+        answers = [
+            re.sub(r"^[\s*-]+|[\s*-]+$", "", answer) for answer in answers if answer
+        ]
+        return answers
 
 
 if __name__ == "__main__":
@@ -54,11 +85,3 @@ Problem: A financial services company wants to build a production-ready machine 
 5. What is ML Ops, and how can it help the financial services company to streamline their machine learning development and deployment processes?
 """
     # question_body = "What are some key considerations when selecting a machine learning algorithm for a given problem?"
-
-    question = Question(
-        topic="machine learning engineering",
-        sub_topic="algorithms",
-        question=question_body,
-    )
-    key_points = generate_answer_key_points(question)
-    print(key_points)

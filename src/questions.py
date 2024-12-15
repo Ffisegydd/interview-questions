@@ -2,22 +2,22 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
-# from dotenv import load_dotenv
+from haystack import Pipeline
 
-# load_dotenv()
-
-from answer_generation import generate_answer_key_points
-from cluster_similar_documents import cluster_documents
-from consts import Level, Question
-from followup_generation import generate_followups
-from question_generation import generate_questions
-from question_rephraser import rephrase_questions
+from answer_generation import GenerateAnswers
+from cluster_similar_documents import ClusterQuestions
+from consts import FullQuestion, Level
+from followup_generation import GenerateFollowups
+from models import ModelType
+from question_generation import (
+    GenerateQuestions,
+)
+from question_rephraser import ReduceClusters
 from sub_topic_generation import generate_sub_topics
 
 # Configure logger
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 other_logger_names = ["haystack.core.pipeline.pipeline", "httpx"]
@@ -27,7 +27,7 @@ for name in other_logger_names:
 state = []
 
 
-def serialise_results(result: Question):
+def serialise_results(result: FullQuestion):
     state.append(
         {
             "question": result.question,
@@ -54,65 +54,72 @@ def store_state():
         json.dump(state, f, indent=4)
 
 
-def main() -> None:
-    logger.info("STARTING PIPELINE")
+def create_pipeline(model_type: ModelType = ModelType.REMOTE_CHEAP) -> Pipeline:
+    logger.info("Creating pipeline")
     # Note that due to du-dupe and rephrasing, you can't guarantee the number of questions
     # at the end of the process
-    MIN_QUESTIONS_FOR_SUB_TOPIC = 20
 
-    logger.info("Generating sub-topics")
-    sub_topics = generate_sub_topics(topic=TOPIC, num_sub_topics=20)
-    logger.info(f"# sub-topics generated: {len(sub_topics)}")
-    logger.info(f"Sub-topics: \n{'\n'.join(sub_topics)}")
-    input("Press Enter to continue, if happy with sub-topics...")
-    logger.info("Generating questions")
-    raw_questions: List[Question] = []
-    for sub_topic in sub_topics:
-        logger.info(f"Generating questions for sub-topic: {sub_topic}")
-        sub_topic_questions = []
+    question_generation_pipeline = Pipeline()
 
-        while len(sub_topic_questions) < MIN_QUESTIONS_FOR_SUB_TOPIC:
-            questions = generate_questions(
-                topic=TOPIC, sub_topic=sub_topic, level=LEVEL
-            )
-            sub_topic_questions.extend(questions)
+    question_generation_pipeline.add_component(
+        "generate-questions", GenerateQuestions(model_type)
+    )
+    question_generation_pipeline.add_component(
+        "cluster-questions", ClusterQuestions("mxbai-embed-large")
+    )  # type: ignore
+    question_generation_pipeline.add_component(
+        "reduce-clusters", ReduceClusters(model_type)
+    )  # type: ignore
+    question_generation_pipeline.add_component(
+        "generate-answers", GenerateAnswers(model_type)
+    )  # type: ignore
+    question_generation_pipeline.add_component(
+        "generate-followups",
+        GenerateFollowups(model_type),  # type: ignore
+    )
 
-        raw_questions.extend(
-            [
-                Question(topic=TOPIC, sub_topic=sub_topic, question=q)
-                for q in sub_topic_questions
-            ]
-        )
-    logger.info(f"# questions generated: {len(raw_questions)}")
-    logger.info("Clustering questions")
-    clustered_questions = cluster_documents(raw_questions)
-    logger.info(f"# clusters: {len(clustered_questions)}")
-
-    for i, cluster in enumerate(clustered_questions.values()):
-        if len(cluster) > 1:
-            logger.info(
-                f"Cluster of {len(cluster)} questions: {[q.question for q in cluster]}"
-            )
-            result = rephrase_questions(questions=cluster, level=LEVEL)[0]
-        else:
-            result = cluster[0]
-
-        answers = generate_answer_key_points(
-            result=result,
-        )
-        result.answers = answers
-
-        follow_ups = generate_followups(result=result, level=LEVEL)
-        result.follow_ups = follow_ups
-        serialise_results(result=result)
-
-        if i % 20 == 0:
-            logger.info(f"Storing state at cluster {i} / {len(clustered_questions)}")
-            store_state()
-
-    logger.info("PIPELINE COMPLETE")
-    store_state()
+    question_generation_pipeline.connect(
+        "generate-questions.questions", "cluster-questions.questions"
+    )
+    question_generation_pipeline.connect(
+        "cluster-questions.clusters", "reduce-clusters.clusters"
+    )
+    question_generation_pipeline.connect(
+        "reduce-clusters.questions", "generate-answers.questions"
+    )
+    question_generation_pipeline.connect(
+        "generate-answers.questions", "generate-followups.questions"
+    )
+    return question_generation_pipeline
 
 
 if __name__ == "__main__":
-    main()
+    logger.info("Starting script")
+    model_type = ModelType.REMOTE_CHEAP
+    topic = "machine learning"
+    num_sub_topics = 3
+    level = Level.BEGINNER.value
+    num_questions_per_sub_topic = 20
+    max_cluster_size = 5
+    pipeline = create_pipeline(model_type)
+
+    sub_topics = generate_sub_topics(topic, num_sub_topics=num_sub_topics)
+    logger.info(f"Sub topics: {sub_topics}")
+    logger.info("Running pipeline")
+    questions = pipeline.run(
+        {
+            "generate-questions": {
+                "topic": topic,
+                "sub_topics": sub_topics,
+                "level": level,
+                "num_questions": 20,
+            },
+            "reduce-clusters": {
+                "max_cluster_size": max_cluster_size,
+                "level": level,
+            },
+        }
+    )
+    for question in questions["generate-followups"]["questions"]:
+        serialise_results(question)
+    store_state()

@@ -1,0 +1,29 @@
+[
+    {
+        "question": "What motivated you to begin your journey in machine learning, particularly in the area of supervised learning?",
+        "answers": [
+            "Clear identification of the initial interest in machine learning",
+            "Mention of specific experiences or events that sparked motivation",
+            "Discussion of relevant educational background or training",
+            "Description of key projects or practical applications undertaken",
+            "Reference to influential figures or resources that inspired the journey",
+            "Expression of the desire to solve real-world problems using supervised learning",
+            "Emphasis on continuous learning and staying updated in the field",
+            "Articulation of long-term goals related to machine learning and supervised learning"
+        ],
+        "topic": "machine learning",
+        "sub_topic": "Supervised Learning",
+        "follow_ups": [
+            "Can you describe a specific project or experience that solidified your interest in supervised learning?",
+            "How did you approach learning the foundational concepts of supervised learning, and which resources did you find most helpful?",
+            "What challenges did you face early on in your journey with supervised learning, and how did you overcome them?",
+            "In what ways has your motivation evolved as you gained more experience in supervised learning?",
+            "Can you discuss any influential figures or experiences that inspired you to pursue supervised learning specifically?",
+            "How do you stay updated with the latest developments and trends in supervised learning?",
+            "Have you encountered a particular problem in supervised learning that sparked a deeper interest or curiosity for you?",
+            "Can you share any examples where your motivation has directly influenced the outcomes of your supervised learning projects?",
+            "How do you balance theoretical knowledge with practical application in your work with supervised learning?",
+            "What areas within supervised learning do you feel most passionate about, and why?"
+        ]
+    }
+]

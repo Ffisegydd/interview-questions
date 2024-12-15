@@ -43,7 +43,7 @@ def generate_sub_topics(topic: str, num_sub_topics: int = 10) -> List[str]:
     )
     sub_topics = results["sub-topic-generator"]["replies"][0].split("\n")
 
-    return sub_topics
+    return [sub_topic.strip() for sub_topic in sub_topics]
 
 
 if __name__ == "__main__":
