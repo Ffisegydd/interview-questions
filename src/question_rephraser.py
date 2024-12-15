@@ -4,7 +4,7 @@ from haystack import Pipeline
 from haystack.components.builders import PromptBuilder
 
 from models import create_llm_model, ModelType
-from consts import Level, Result
+from consts import Level, Question
 import logging
 
 
@@ -41,9 +41,9 @@ question_rephrase_pipeline.connect("rephraser-prompt", "rephraser-generator")
 
 
 def rephrase_questions(
-    questions: List[Result],
+    questions: List[Question],
     level: Level = Level.BEGINNER,
-) -> List[Result]:
+) -> List[Question]:
     topics = list(set([q.topic for q in questions]))
     sub_topics = list(set([q.sub_topic for q in questions]))
     if len(sub_topics) > 1:
@@ -71,7 +71,7 @@ def rephrase_questions(
     rephrased_questions = results["rephraser-generator"]["replies"][0].split("\n")
 
     rephrased_questions = [
-        Result(topic=topics[0], sub_topic=sub_topics[0], question=q)
+        Question(topic=topics[0], sub_topic=sub_topics[0], question=q)
         for q in rephrased_questions
     ]
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         "Is missing data a problem in a dataset?",
     ]
     results = [
-        Result(topic="machine learning engineering", sub_topic="data", question=q)
+        Question(topic="machine learning engineering", sub_topic="data", question=q)
         for q in questions
     ]
     rephrased_questions = rephrase_questions(

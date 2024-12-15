@@ -1,18 +1,8 @@
-# Haystack Project
+# Interview Questions
 
 ## Overview
-This project is designed to implement the Haystack framework for building search applications. It provides a structured approach to setting up and utilizing Haystack components.
+Generates interview questions and case studies for a given topic
 
-## Project Structure
-```
-haystack-project
-├── src
-│   ├── main.py          # Entry point of the application
-│   └── utils
-│       └── __init__.py  # Utility functions and classes
-├── requirements.txt     # Project dependencies
-└── README.md            # Project documentation
-```
 
 ## Setup Instructions
 1. Clone the repository:
@@ -25,17 +15,33 @@ haystack-project
    ```
 3. Install the required dependencies:
    ```
-   pip install -r requirements.txt
+   uv sync
    ```
 
 ## Usage
-To run the application, execute the following command:
+To generate questions, execute the following command:
 ```
-python src/main.py
+python src/questions.py
 ```
 
-## Contributing
-Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
+To generate case studies, execute the following command:
+```
+python src/case_studies.py
+```
+
+## TODO
+
+No particular order
+
+* Add config file control, rather than modifying the scripts
+* Case studies v2.0
+   - Separate context, question, and answers into separate LLMs+prompts
+* Refactor to make use of better pipeline functionality
+* Add guardrails for LLM responses, including:
+   - Filtering empty lines
+   - Self-correcting loop
+* Play with the rephrasing prompt to get better results
+* Create some C4 diagrams
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.

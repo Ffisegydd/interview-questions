@@ -10,7 +10,8 @@ from enum import Enum
 class ModelType(Enum):
     LOCAL_SLOW = "llama3.3"
     LOCAL_FAST = "wizard-vicuna"
-    REMOTE = "openai"
+    REMOTE = "gpt-4o"
+    REMOTE_CHEAP = "gpt-4o-mini"
 
 
 def create_llm_model(model_type: ModelType):
@@ -22,13 +23,13 @@ def create_llm_model(model_type: ModelType):
     """
     model_name = model_type.value
 
-    if model_type == ModelType.REMOTE:
+    if model_type in {ModelType.REMOTE, ModelType.REMOTE_CHEAP}:
         openai_api_key = os.getenv("OPENAI_API_KEY", None)
         assert (
             openai_api_key is not None
         ), "Please set the OPENAI_API_KEY environment variable."
         return OpenAIGenerator(
-            model="gpt-4o-mini",  # type: ignore
+            model=model_name,  # type: ignore
             api_key=Secret.from_token(openai_api_key),  # type: ignore
         )  # type: ignore
     else:

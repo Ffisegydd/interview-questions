@@ -15,7 +15,8 @@ You must not write the same sub-topic twice.
 You must not include any extra conversation, you must only write sub-topics.
 You must not include any numbers or bullet points at the start of each line.
 You are an expert in the topic {{ topic }}.
-Your topic to write sub-topics for is {{ topic }}."""
+Your topic to write sub-topics for is {{ topic }}.
+You should write a maximum of {{ num_sub_topics }} sub-topics."""
 
 sub_topic_prompt_builder = PromptBuilder(template=SUB_TOPIC_TEMPLATE)  # type: ignore
 
@@ -31,11 +32,12 @@ sub_topic_generation_pipeline.add_component(
 sub_topic_generation_pipeline.connect("sub-topic-prompt", "sub-topic-generator")
 
 
-def generate_sub_topics(topic: str) -> List[str]:
+def generate_sub_topics(topic: str, num_sub_topics: int = 10) -> List[str]:
     results = sub_topic_generation_pipeline.run(
         {
             "sub-topic-prompt": {
                 "topic": topic,
+                "num_sub_topics": num_sub_topics,
             }
         }
     )

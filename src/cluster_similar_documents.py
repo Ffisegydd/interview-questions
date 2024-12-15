@@ -2,15 +2,15 @@ from typing import List
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-from consts import Result
+from consts import Question
 from embedder import embed_documents
 import uuid
 
 
 # Function to calculate similarity and decide on adding a document
 def add_document_if_not_similar(
-    doc: Result, existing_docs: dict[str, List[Result]], similarity_threshold=0.85
-) -> dict[str, List[Result]]:
+    doc: Question, existing_docs: dict[str, List[Question]], similarity_threshold=0.85
+) -> dict[str, List[Question]]:
     # Embed the new document
     doc_embedding = embed_documents([doc.question])["documents"][0].embedding
     doc.question_embedding = doc_embedding
@@ -32,8 +32,8 @@ def add_document_if_not_similar(
     return existing_docs
 
 
-def cluster_documents(documents: List[Result], similarity_threshold=0.9):
-    existing_docs: dict[str, List[Result]] = {}
+def cluster_documents(documents: List[Question], similarity_threshold=0.9):
+    existing_docs: dict[str, List[Question]] = {}
 
     for doc in documents:
         add_document_if_not_similar(doc, existing_docs, similarity_threshold)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     ]
 
     documents = [
-        Result(question=q, topic="machine learning", sub_topic="ml engineering")
+        Question(question=q, topic="machine learning", sub_topic="ml engineering")
         for q in questions
     ]
 

@@ -3,7 +3,7 @@ from haystack import Pipeline
 from haystack.components.builders import PromptBuilder
 
 from models import create_llm_model, ModelType
-from consts import Level, Result
+from consts import Level, Question
 
 followup_generation_model = create_llm_model(ModelType.REMOTE)
 
@@ -46,7 +46,7 @@ followup_generation_pipeline.connect("followup-prompt", "followup-generator")
 
 
 def generate_followups(
-    result: Result,
+    result: Question,
     level: Level = Level.BEGINNER,
 ) -> List[str]:
     results = followup_generation_pipeline.run(
@@ -67,7 +67,7 @@ def generate_followups(
 
 if __name__ == "__main__":
     questions = generate_followups(
-        result=Result(
+        result=Question(
             topic="machine learning engineering",
             sub_topic="machine learning algorithms",
             question="What is the difference between supervised and unsupervised learning?",

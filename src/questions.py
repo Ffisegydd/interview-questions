@@ -4,13 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 from answer_generation import generate_answer_key_points
 from cluster_similar_documents import cluster_documents
-from consts import Level, Result
+from consts import Level, Question
 from followup_generation import generate_followups
 from question_generation import generate_questions
 from question_rephraser import rephrase_questions
@@ -20,7 +20,6 @@ from sub_topic_generation import generate_sub_topics
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-print(logging.Logger.manager.loggerDict)
 other_logger_names = ["haystack.core.pipeline.pipeline", "httpx"]
 for name in other_logger_names:
     logging.getLogger(name).setLevel(logging.CRITICAL)
@@ -28,7 +27,7 @@ for name in other_logger_names:
 state = []
 
 
-def serialise_results(result: Result):
+def serialise_results(result: Question):
     state.append(
         {
             "question": result.question,
@@ -40,8 +39,8 @@ def serialise_results(result: Result):
     )
 
 
-TOPIC = "data engineering"
-LEVEL = Level.BEGINNER
+TOPIC = "data science"
+LEVEL = Level.INTERMEDIATE
 
 results_dir = Path(__file__).resolve().parent.parent / "results"
 results_dir.mkdir(parents=True, exist_ok=True)
@@ -62,12 +61,12 @@ def main() -> None:
     MIN_QUESTIONS_FOR_SUB_TOPIC = 20
 
     logger.info("Generating sub-topics")
-    sub_topics = generate_sub_topics(topic=TOPIC)
+    sub_topics = generate_sub_topics(topic=TOPIC, num_sub_topics=20)
     logger.info(f"# sub-topics generated: {len(sub_topics)}")
-    logger.info(f"Sub-topics: {sub_topics}")
-
+    logger.info(f"Sub-topics: \n{'\n'.join(sub_topics)}")
+    input("Press Enter to continue, if happy with sub-topics...")
     logger.info("Generating questions")
-    raw_questions: List[Result] = []
+    raw_questions: List[Question] = []
     for sub_topic in sub_topics:
         logger.info(f"Generating questions for sub-topic: {sub_topic}")
         sub_topic_questions = []
@@ -80,7 +79,7 @@ def main() -> None:
 
         raw_questions.extend(
             [
-                Result(topic=TOPIC, sub_topic=sub_topic, question=q)
+                Question(topic=TOPIC, sub_topic=sub_topic, question=q)
                 for q in sub_topic_questions
             ]
         )

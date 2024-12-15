@@ -15,5 +15,6 @@ dependencies = [
     "pyre-check>=0.9.23",
     "hydra-core>=1.3.2",
     "python-dotenv>=1.0.1",
+    "pydantic>=2.10.3",
     "pandas>=2.2.3",
 ]

@@ -2,7 +2,7 @@ from typing import List
 from haystack import Pipeline
 from haystack.components.builders import PromptBuilder
 
-from consts import Result
+from consts import Question
 from models import create_llm_model, ModelType
 
 ANSWER_TEMPLATE = """
@@ -29,7 +29,7 @@ answer_generation_pipeline.add_component("answer-generator", answer_generation_m
 answer_generation_pipeline.connect("answer-prompt", "answer-generator")
 
 
-def generate_answer_key_points(result: Result) -> List[str]:
+def generate_answer_key_points(result: Question) -> List[str]:
     results = answer_generation_pipeline.run(
         {
             "answer-prompt": {
@@ -45,10 +45,20 @@ def generate_answer_key_points(result: Result) -> List[str]:
 
 
 if __name__ == "__main__":
-    question = Result(
+    question_body = """Title: Building a Production-Ready Machine Learning Model for Fraud Detection
+Problem: A financial services company wants to build a production-ready machine learning model to detect fraudulent transactions in real-time. The company has a large dataset of historical transaction data, but lacks the expertise and infrastructure to develop and deploy machine learning models at scale.
+1. What are the key steps involved in building a production-ready machine learning model for fraud detection?
+2. How can the financial services company ensure that their model is accurate and reliable?
+3. What are some common challenges in developing and deploying machine learning models, and how can these be addressed?
+4. How can the financial services company integrate their machine learning model with their existing IT infrastructure and workflows?
+5. What is ML Ops, and how can it help the financial services company to streamline their machine learning development and deployment processes?
+"""
+    # question_body = "What are some key considerations when selecting a machine learning algorithm for a given problem?"
+
+    question = Question(
         topic="machine learning engineering",
         sub_topic="algorithms",
-        question="What are some key considerations when selecting a machine learning algorithm for a given problem?",
+        question=question_body,
     )
     key_points = generate_answer_key_points(question)
     print(key_points)
