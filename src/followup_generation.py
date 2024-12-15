@@ -5,7 +5,7 @@ from haystack import Pipeline, component
 from haystack.components.builders import PromptBuilder
 
 from models import create_llm_model, ModelType
-from consts import AnsweredQuestion, FullQuestion, Level, Question
+from consts import AnsweredQuestion, FullQuestion
 
 followup_generation_model = create_llm_model(ModelType.REMOTE)
 

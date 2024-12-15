@@ -1,7 +1,6 @@
 import logging
 from typing import Dict, List
 from haystack import Document, component
-from haystack.components.embedders import OpenAITextEmbedder
 from haystack_integrations.components.embedders.ollama import OllamaDocumentEmbedder
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
