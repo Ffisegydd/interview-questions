@@ -20,9 +20,11 @@ from sub_topic_generation import generate_sub_topics
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-other_logger_names = ["haystack.core.pipeline.pipeline", "httpx"]
-for name in other_logger_names:
-    logging.getLogger(name).setLevel(logging.CRITICAL)
+other_logger_names = ["haystack", "httpx", "httpcore", "openai", "urllib3"]
+for logger_name in logging.root.manager.loggerDict:
+    if any(logger_name.startswith(name) for name in other_logger_names):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 
 state = []
 
@@ -89,15 +91,16 @@ def create_pipeline(model_type: ModelType = ModelType.REMOTE_CHEAP) -> Pipeline:
 if __name__ == "__main__":
     logger.info("Starting script")
     model_type = ModelType.REMOTE_CHEAP
-    topic = "machine learning"
-    num_sub_topics = 3
+    topic = "audo and video ai/ml"
+    num_sub_topics = 10
     level = Level.BEGINNER.value
-    num_questions_per_sub_topic = 20
+    num_questions_per_sub_topic = 10
     max_cluster_size = 5
     pipeline = create_pipeline(model_type)
 
     sub_topics = generate_sub_topics(topic, num_sub_topics=num_sub_topics)
     logger.info(f"Sub topics: {sub_topics}")
+    input("Press enter to continue")
     logger.info("Running pipeline")
     questions = pipeline.run(
         {
@@ -105,7 +108,7 @@ if __name__ == "__main__":
                 "topic": topic,
                 "sub_topics": sub_topics,
                 "level": level,
-                "num_questions": 20,
+                "num_questions": num_questions_per_sub_topic,
             },
             "reduce-clusters": {
                 "max_cluster_size": max_cluster_size,

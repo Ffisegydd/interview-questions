@@ -82,7 +82,10 @@ class GenerateQuestions:
                             and num_generated_for_sub_topic < num_questions
                         ):  # Check for empty lines
                             questions.append(question)
-                            self.logger.debug(f"Added question: {question}")
+                            if num_generated_for_sub_topic % 20 == 0:
+                                self.logger.debug(
+                                    f"Added question {num_generated_for_sub_topic}/{num_questions} for sub-topic: {sub_topic}"
+                                )
                             num_generated_for_sub_topic += 1
         self.logger.info(f"# of raw questions generated: {len(questions)}")
         return {"questions": questions}
